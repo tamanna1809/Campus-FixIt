@@ -1,19 +1,56 @@
-import React, { useContext } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import React, { useContext, useState, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { AuthContext } from "../context/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
+import { API_URL } from "../config/api";
 
 export default function Home() {
-  const { logout } = useContext(AuthContext);
+  const { logout, userToken, userInfo } = useContext(AuthContext);
   const router = useRouter();
+  const [recentIssues, setRecentIssues] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchRecentIssues();
+    }, [])
+  );
+  
+  const fetchRecentIssues = async () => {
+    try {
+      const res = await fetch(`${API_URL}/issues/mine`, {
+        headers: { Authorization: userToken },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setRecentIssues(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch issues", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status) => {
+    if (status === "Resolved") return "green";
+    if (status === "In Progress") return "orange";
+    return "#2563EB";
+  };
+
+  const getStatusBg = (status) => {
+    if (status === "Resolved") return "#DCFCE7";
+    if (status === "In Progress") return "#FEF3C7";
+    return "#DBEAFE";
+  }; 
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Hello, Student</Text>
+          <Text style={styles.greeting}>Hello, {userInfo?.name || "Student"}</Text>
           <Text style={styles.subtitle}>What needs fixing today?</Text>
         </View>
         <TouchableOpacity onPress={logout} style={styles.logoutButton}>
@@ -57,28 +94,29 @@ export default function Home() {
           </TouchableOpacity>
         </View>
 
-        {/* Mock Issue Card */}
-        <View style={styles.issueCard}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.issueTitle}>Broken Projector</Text>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>In Progress</Text>
-            </View>
+        {loading ? (
+          <ActivityIndicator size="large" color="#4F46E5" />
+        ) : recentIssues.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="checkmark-circle-outline" size={48} color="#9CA3AF" />
+            <Text style={styles.emptyText}>No tickets raised yet</Text>
           </View>
-          <Text style={styles.issueLocation}>Room 304 • Science Block</Text>
-          <Text style={styles.issueDate}>Reported 2 days ago</Text>
-        </View>
-
-        <View style={styles.issueCard}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.issueTitle}>Water Leak</Text>
-            <View style={[styles.statusBadge, { backgroundColor: "#FEF3C7" }]}>
-              <Text style={[styles.statusText, { color: "#D97706" }]}>Pending</Text>
+        ) : (
+          recentIssues.slice(0, 2).map((issue) => (
+            <View key={issue._id} style={styles.issueCard}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.issueTitle}>{issue.title}</Text>
+                <View style={[styles.statusBadge, { backgroundColor: getStatusBg(issue.status) }]}>
+                  <Text style={[styles.statusText, { color: getStatusColor(issue.status) }]}>
+                    {issue.status}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.issueLocation}>{issue.location} • {issue.category}</Text>
+              <Text style={styles.issueDate}>Reported on {new Date(issue.date).toLocaleDateString()}</Text>
             </View>
-          </View>
-          <Text style={styles.issueLocation}>2nd Floor Washroom • Library</Text>
-          <Text style={styles.issueDate}>Reported 5 hours ago</Text>
-        </View>
+          ))
+        )}
       </ScrollView>
     </View>
   );
@@ -207,4 +245,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#9CA3AF",
   },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 30,
+    backgroundColor: "white",
+    borderRadius: 16,
+    elevation: 1
+  },
+  emptyText: {
+    color: "#9CA3AF",
+    marginTop: 10,
+    fontSize: 14
+  }
 });

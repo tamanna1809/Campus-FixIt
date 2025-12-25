@@ -49,7 +49,7 @@ export default function TabLayout() {
         name="my-issues"
         options={{
           title: "My Issues",
-          tabBarIcon: ({ color, size }) => (
+            tabBarIcon: ({ color, size }) => (
             <Ionicons name="list" size={size} color={color} />
           ),
         }}
